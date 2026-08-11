@@ -1,13 +1,44 @@
 # Orders Microservice (`orders-ms`)
 
-A microservice that manages order processing and order lifecycle using PostgreSQL and TCP transport.
+A NestJS microservice that manages order processing and order lifecycle using PostgreSQL, Prisma ORM, and TCP transport. It integrates with the `products-ms` microservice to validate products and prices when processing orders.
 
 ## Features
 
 - **Microservice Architecture**: Communicates via NestJS Microservices TCP transport.
-- **Database**: PostgreSQL database containerized via Docker Compose.
+- **Relational Data Model**: Manages `Order` and relational `OrderItem` records using Prisma ORM.
+- **Products Integration**: Communicates with `products-ms` via TCP to validate product existence, prices, and names.
+- **Transactional Order Creation**: Calculates total items and total amounts server-side using trusted product data.
+- **Database**: PostgreSQL containerized via Docker Compose.
 - **Validation**: Strict DTO validation using `class-validator` and `class-transformer`.
 - **Environment Configuration**: Environment variables validated with `joi`.
+
+---
+
+## Database Models (Prisma)
+
+### `Order`
+
+| Field         | Type          | Description                                            |
+| ------------- | ------------- | ------------------------------------------------------ |
+| `id`          | `String`      | Primary Key (UUID)                                     |
+| `totalAmount` | `Float`       | Total order cost calculated from validated item prices |
+| `totalItems`  | `Int`         | Total item count across all order items                |
+| `status`      | `OrderStatus` | Status enum (`PENDING`, `DELIVERED`, `CANCELLED`)      |
+| `paid`        | `Boolean`     | Payment status flag (default `false`)                  |
+| `paidAt`      | `DateTime?`   | Timestamp when payment was completed                   |
+| `createdAt`   | `DateTime`    | Order creation timestamp                               |
+| `updatedAt`   | `DateTime`    | Order last updated timestamp                           |
+| `OrderItem`   | `OrderItem[]` | Array of related order items                           |
+
+### `OrderItem`
+
+| Field       | Type      | Description                                      |
+| ----------- | --------- | ------------------------------------------------ |
+| `id`        | `String`  | Primary Key (UUID)                               |
+| `productId` | `Int`     | Foreign identifier of product from `products-ms` |
+| `quantity`  | `Int`     | Number of units ordered                          |
+| `price`     | `Float`   | Unit price snapshot at time of order creation    |
+| `orderId`   | `String?` | Foreign Key referencing `Order(id)`              |
 
 ---
 
@@ -21,13 +52,15 @@ cp .env.template .env
 
 Default variables:
 
-| Variable | Description           | Default Value |
-| -------- | --------------------- | ------------- |
-| `PORT`   | Microservice TCP Port | `3002`        |
+| Variable                | Description                           | Default Value |
+| ----------------------- | ------------------------------------- | ------------- |
+| `PORT`                  | Microservice TCP Port                 | `3002`        |
+| `PRODUCTS_SERVICE_HOST` | Host for `products-ms` TCP connection | `localhost`   |
+| `PRODUCTS_SERVICE_PORT` | Port for `products-ms` TCP connection | `3001`        |
 
 ---
 
-## Database Setup (Docker)
+## Database Setup (Docker & Prisma)
 
 To run the PostgreSQL database using Docker Compose:
 
@@ -45,6 +78,13 @@ Database connection details:
 | `Password` | `postgres`  |
 | `Database` | `ordersdb`  |
 
+Run Prisma migrations & generate client:
+
+```bash
+npx prisma migrate dev
+npx prisma generate
+```
+
 ---
 
 ## Installation & Setup
@@ -61,6 +101,12 @@ Database connection details:
    docker compose up -d
    ```
 
+3. **Run database migrations**:
+
+   ```bash
+   npx prisma migrate dev
+   ```
+
 ---
 
 ## Running the Microservice
@@ -75,16 +121,24 @@ npm run start:prod
 
 ---
 
-## TCP Message Patterns
+## TCP Message Patterns (Exposed)
 
 The microservice exposes the following TCP message patterns (`@MessagePattern`):
 
-| Pattern (`cmd`)     | Payload                          | Description                             |
-| ------------------- | -------------------------------- | --------------------------------------- |
-| `createOrder`       | `CreateOrderDto`                 | Creates a new order                     |
-| `findAllOrders`     | N/A                              | Fetches all orders                      |
-| `findOneOrder`      | `{ id: number }`                 | Fetches a single order by ID            |
-| `changeOrderStatus` | `{ id: number, status: string }` | Updates the status of an existing order |
+| Pattern             | Payload Schema                                            | Description                                          |
+| ------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| `createOrder`       | `{ items: [{ productId: number, quantity: number }] }`    | Validates items with `products-ms` and creates order |
+| `findAllOrders`     | `{ page?: number, limit?: number, status?: OrderStatus }` | Fetches paginated orders (optional status filter)    |
+| `findOneOrder`      | `{ id: string }`                                          | Fetches an order by UUID with enriched item details  |
+| `changeOrderStatus` | `{ id: string, status: OrderStatus }`                     | Updates the status of an existing order              |
+
+---
+
+## External Microservice Dependencies
+
+| Microservice  | Transport | Command (`cmd`)     | Sent Payload | Purpose                                          |
+| ------------- | --------- | ------------------- | ------------ | ------------------------------------------------ |
+| `products-ms` | TCP       | `validate_products` | `number[]`   | Validates product IDs and fetches prices & names |
 
 ---
 
@@ -92,5 +146,5 @@ The microservice exposes the following TCP message patterns (`@MessagePattern`):
 
 - **Framework**: [NestJS](https://nestjs.com/)
 - **Transport**: TCP (`@nestjs/microservices`)
-- **Database**: PostgreSQL
+- **Database & ORM**: PostgreSQL + [Prisma](https://www.prisma.io/)
 - **Validation**: `class-validator` & `class-transformer`
