@@ -8,12 +8,13 @@ async function bootstrap() {
   // Creating a logger instance to log messages related to the order microservice
   const logger = new Logger('Orders-Microservice-Main');
 
+  // Creates a microservice instance using NATS transport and the provided options
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     AppModule,
     {
-      transport: Transport.TCP,
+      transport: Transport.NATS,
       options: {
-        port: envs.port,
+        servers: envs.natsServers,
       },
     },
   );

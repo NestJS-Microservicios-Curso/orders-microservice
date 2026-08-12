@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangeOrderStatusDto, CreateOrderDto } from './dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { OrderPaginationDto } from './dto/order-pagination.dto';
-import { PRODUCTS_SERVICE } from '../config';
+import { NATS_SERVICE } from '../config';
 import { catchError, firstValueFrom } from 'rxjs';
 
 interface ValidatedProduct {
@@ -16,8 +16,8 @@ interface ValidatedProduct {
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(PRODUCTS_SERVICE)
-    private readonly productsServiceClient: ClientProxy, // Injecting the microservice client
+    @Inject(NATS_SERVICE)
+    private readonly client: ClientProxy, // Injecting the NATS client proxy to communicate with the products microservice
   ) {}
 
   async create(createOrderDto: CreateOrderDto) {
@@ -32,7 +32,7 @@ export class OrdersService {
     }
 
     const validateProductsResponse = await firstValueFrom(
-      this.productsServiceClient
+      this.client
         .send<ValidatedProduct[]>({ cmd: 'validate_products' }, productsIds)
         .pipe(
           catchError((error: unknown) => {
@@ -156,7 +156,7 @@ export class OrdersService {
     const productsIds = order.OrderItem.map((orderItem) => orderItem.productId);
 
     const validateProductsResponse = await firstValueFrom(
-      this.productsServiceClient
+      this.client
         .send<ValidatedProduct[]>({ cmd: 'validate_products' }, productsIds)
         .pipe(
           catchError((error: unknown) => {
