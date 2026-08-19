@@ -1,10 +1,12 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ChangeOrderStatusDto, CreateOrderDto } from './dto';
+import { ChangeOrderStatusDto, CreateOrderDto, PaidOrderDto } from './dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { OrderPaginationDto } from './dto/order-pagination.dto';
 import { NATS_SERVICE } from '../config';
 import { catchError, firstValueFrom } from 'rxjs';
+import { OrderWithProducts } from './interfaces/order-with-products.interface';
+import { OrderStatus } from './enum/order.enum';
 
 interface ValidatedProduct {
   id: number;
@@ -14,6 +16,8 @@ interface ValidatedProduct {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger('OrdersService');
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(NATS_SERVICE)
@@ -193,6 +197,58 @@ export class OrdersService {
     return await this.prisma.order.update({
       where: { id: id },
       data: { status: status },
+    });
+  }
+
+  async createPaymentSession(order: OrderWithProducts) {
+    return await firstValueFrom(
+      this.client
+        .send('create.payment.session', {
+          orderId: order.id,
+          currency: 'usd',
+          items: order.OrderItem.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        })
+        .pipe(
+          catchError((error: unknown) => {
+            const err = error as { message?: string };
+            throw new RpcException({
+              status: HttpStatus.BAD_REQUEST,
+              error: 'Bad Request',
+              message: err.message || 'Error creating payment session',
+            });
+          }),
+        ),
+    );
+  }
+
+  async markOrderAsPaid(paidOrderDto: PaidOrderDto) {
+    this.logger.log(`Marking order ${paidOrderDto.orderId} as paid`);
+
+    const order = await this.findOne(paidOrderDto.orderId);
+
+    if (order.status === OrderStatus.PAID) {
+      return order;
+    }
+
+    return await this.prisma.order.update({
+      where: { id: paidOrderDto.orderId },
+      data: {
+        status: OrderStatus.PAID,
+        paid: true,
+        paidAt: new Date(),
+        stripeChargeId: paidOrderDto.stripePaymentId,
+
+        // Relationship 1-TO-1 with OrderReceipt. Transactional when an order is marked as paid, we create a new OrderReceipt record with the receiptUrl from the payment microservice
+        OrderReceipt: {
+          create: {
+            receiptUrl: paidOrderDto.receiptUrl,
+          },
+        },
+      },
     });
   }
 }
