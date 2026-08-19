@@ -251,4 +251,20 @@ export class OrdersService {
       },
     });
   }
+
+  async markOrderAsCancelled(payload: { orderId: string; reason?: string }) {
+    this.logger.warn(
+      `Marking order ${payload.orderId} as CANCELLED. Reason: ${payload.reason || 'Payment failed'}`,
+    );
+    const order = await this.findOne(payload.orderId);
+    if (order.status === OrderStatus.CANCELLED) {
+      return order;
+    }
+    return await this.prisma.order.update({
+      where: { id: payload.orderId },
+      data: {
+        status: OrderStatus.CANCELLED,
+      },
+    });
+  }
 }

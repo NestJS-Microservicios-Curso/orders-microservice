@@ -44,4 +44,13 @@ export class OrdersController {
   paymentSucceeded(@Payload() paidOrderDto: PaidOrderDto) {
     return this.ordersService.markOrderAsPaid(paidOrderDto);
   }
+
+  // Allows listen events from payments microservice to mark the order as cancelled
+  // For simplicity, we consider that if the payment fails, the order should be cancelled.
+  // In a real-world scenario, you might want to handle this differently
+  // (failed payments could be retried, or the user could be notified to try again).
+  @EventPattern('payment.failed')
+  paymentFailed(@Payload() payload: { orderId: string; reason?: string }) {
+    return this.ordersService.markOrderAsCancelled(payload);
+  }
 }
