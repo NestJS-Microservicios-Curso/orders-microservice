@@ -1,12 +1,12 @@
 # Orders Microservice (`orders-ms`)
 
-A NestJS microservice that manages order processing and order lifecycle using PostgreSQL, Prisma ORM, and TCP transport. It integrates with the `products-ms` microservice to validate products and prices when processing orders.
+A NestJS microservice that manages order processing and order lifecycle using PostgreSQL, Prisma ORM, and NATS transport. It integrates with the `products-ms` microservice to validate products and prices when processing orders.
 
 ## Features
 
-- **Microservice Architecture**: Communicates via NestJS Microservices TCP transport.
+- **Microservice Architecture**: Communicates via NestJS Microservices NATS transport.
 - **Relational Data Model**: Manages `Order` and relational `OrderItem` records using Prisma ORM.
-- **Products Integration**: Communicates with `products-ms` via TCP to validate product existence, prices, and names.
+- **Products Integration**: Communicates with `products-ms` via NATS to validate product existence, prices, and names.
 - **Transactional Order Creation**: Calculates total items and total amounts server-side using trusted product data.
 - **Database**: PostgreSQL containerized via Docker Compose.
 - **Validation**: Strict DTO validation using `class-validator` and `class-transformer`.
@@ -52,11 +52,10 @@ cp .env.template .env
 
 Default variables:
 
-| Variable                | Description                           | Default Value |
-| ----------------------- | ------------------------------------- | ------------- |
-| `PORT`                  | Microservice TCP Port                 | `3002`        |
-| `PRODUCTS_SERVICE_HOST` | Host for `products-ms` TCP connection | `localhost`   |
-| `PRODUCTS_SERVICE_PORT` | Port for `products-ms` TCP connection | `3001`        |
+| Variable       | Description                                    | Default Value           |
+| -------------- | ---------------------------------------------- | ----------------------- |
+| `PORT`         | Application port value used in startup logging | `3002`                  |
+| `NATS_SERVERS` | Comma-separated list of NATS broker URLs       | `nats://localhost:4222` |
 
 ---
 
@@ -127,9 +126,9 @@ npm run start:prod
 
 ---
 
-## TCP Message Patterns (Exposed)
+## NATS Message Patterns (Exposed)
 
-The microservice exposes the following TCP message patterns (`@MessagePattern`):
+The microservice exposes the following NATS message patterns (`@MessagePattern`):
 
 | Pattern             | Payload Schema                                            | Description                                          |
 | ------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
@@ -144,13 +143,13 @@ The microservice exposes the following TCP message patterns (`@MessagePattern`):
 
 | Microservice  | Transport | Command (`cmd`)     | Sent Payload | Purpose                                          |
 | ------------- | --------- | ------------------- | ------------ | ------------------------------------------------ |
-| `products-ms` | TCP       | `validate_products` | `number[]`   | Validates product IDs and fetches prices & names |
+| `products-ms` | NATS      | `validate_products` | `number[]`   | Validates product IDs and fetches prices & names |
 
 ---
 
 ## Tech Stack
 
 - **Framework**: [NestJS](https://nestjs.com/)
-- **Transport**: TCP (`@nestjs/microservices`)
+- **Transport**: NATS (`@nestjs/microservices`)
 - **Database & ORM**: PostgreSQL + [Prisma](https://www.prisma.io/)
 - **Validation**: `class-validator` & `class-transformer`
