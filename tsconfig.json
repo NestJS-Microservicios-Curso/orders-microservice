@@ -20,9 +20,10 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "types": ["node", "jest"]
   },
-  "exclude": ["src/**/*.spec.ts", "test/**/*.ts", "dist", "prisma.config.ts"],
+  "exclude": ["test/**/*.ts", "dist", "prisma.config.ts"],
   "watchOptions": {
     "watchFile": "fixedPollingInterval"
   }
