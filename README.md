@@ -153,3 +153,14 @@ The microservice exposes the following NATS message patterns (`@MessagePattern`)
 - **Transport**: NATS (`@nestjs/microservices`)
 - **Database & ORM**: PostgreSQL + [Prisma](https://www.prisma.io/)
 - **Validation**: `class-validator` & `class-transformer`
+
+## Git hooks and formatting
+
+Install dependencies, then activate the versioned hook from this service repository:
+
+```bash
+npm install
+npm run hooks:install
+```
+
+The hook only processes staged JavaScript/TypeScript/JSON files, runs Prettier and ESLint autofixes, re-stages those files, and aborts if errors remain. It temporarily hides unstaged tracked edits and restores only the stash created by this run after the check, so unrelated work is not staged; if restoration conflicts, the hook reports the exact stash reference for manual recovery.
