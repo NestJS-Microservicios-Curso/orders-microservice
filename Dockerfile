@@ -35,4 +35,4 @@ USER node
 
 EXPOSE 3002
 
-CMD ["sh", "-c", "npx --no-install prisma migrate deploy && node dist/src/main.js"]
+CMD ["sh", "-c", "npx --no-install prisma migrate deploy && node dist/main.js"]
